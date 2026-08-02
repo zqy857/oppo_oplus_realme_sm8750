@@ -33,6 +33,14 @@ read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
 APPLY_REKERNEL=${APPLY_REKERNEL:-n}
 read -p "是否启用内核级基带保护？(y/n，默认：y): " APPLY_BBG
 APPLY_BBG=${APPLY_BBG:-y}
+read -p "请输入自定义内核构建时间 (格式：YYYY-MM-DD HH:MM:SS，默认：2024-01-01 00:00:00): " CUSTOM_BUILD_TIME
+CUSTOM_BUILD_TIME=${CUSTOM_BUILD_TIME:-2024-01-01 00:00:00}
+CUSTOM_BUILD_TIME_EPOCH=$(date -d "$CUSTOM_BUILD_TIME" +%s 2>/dev/null || true)
+if [ -z "$CUSTOM_BUILD_TIME_EPOCH" ]; then
+  echo "警告：无法解析输入的构建时间，改用默认值 2024-01-01 00:00:00"
+  CUSTOM_BUILD_TIME="2024-01-01 00:00:00"
+  CUSTOM_BUILD_TIME_EPOCH=$(date -d "$CUSTOM_BUILD_TIME" +%s)
+fi
 
 if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   KSU_TYPE="SukiSU Ultra"
@@ -50,6 +58,7 @@ echo
 echo "===== 配置信息 ====="
 echo "适用机型: $MANIFEST"
 echo "自定义内核后缀: -$CUSTOM_SUFFIX"
+echo "自定义内核构建时间: $CUSTOM_BUILD_TIME"
 echo "KSU分支版本: $KSU_TYPE"
 echo "启用susfs: $APPLY_SUSFS"
 echo "启用 KPM: $USE_PATCH_LINUX"
@@ -375,7 +384,7 @@ sed -i 's/check_defconfig//' ./common/build.config.gki
 # ===== 编译内核 =====
 echo ">>> 开始编译内核..."
 cd common
-make -j$(nproc --all) LLVM=-18 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig all
+KBUILD_BUILD_TIMESTAMP="$CUSTOM_BUILD_TIME" SOURCE_DATE_EPOCH="$CUSTOM_BUILD_TIME_EPOCH" make -j$(nproc --all) LLVM=-18 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig all
 echo ">>> 内核编译成功！"
 
 # ===== 选择使用 patch_linux (KPM补丁)=====
